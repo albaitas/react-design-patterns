@@ -1873,3 +1873,192 @@ const App: React.FC = () => {
 
 export default App;
 ```
+## XV. Asynchronous methods with POST in React
+
+### 1. With fetch
+
+**App.jsx**
+
+```javascript
+import React, { useState, useEffect } from 'react';
+
+export default function App() {
+ const [data, setData] = useState(null); 
+  const [loading, setLoading] = useState(true); 
+  const [error, setError] = useState(null); 
+
+  useEffect(() => {
+    const createUser = async () => {
+      const url = 'https://example.com/api/users';
+      const userData = {
+        name: 'John Doe',
+        email: 'john.doe@example.com',
+      };
+      try {
+        setLoading(true); 
+        const response = await fetch(url, {
+          method: 'POST', 
+          headers: {
+            'Content-Type': 'application/json', 
+          },
+          body: JSON.stringify(userData), 
+        });
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+        const responseData = await response.json(); 
+        setData(responseData); 
+      } catch (error) {
+        setError(error.message); 
+      } finally {
+        setLoading(false); 
+      }
+    };
+    createUser(); 
+  }, []); 
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
+
+  return (
+    <div>
+      <h1>New user</h1>
+      {data && (
+        <div>
+          <p>ID: {data.id}</p>
+          <p>Name: {data.name}</p>
+          <p>Email: {data.email}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### 2. With axios
+
+**App.jsx**
+
+```javascript
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+export default function App() {
+  const [data, setData] = useState(null); 
+  const [loading, setLoading] = useState(true); 
+  const [error, setError] = useState(null); 
+
+  useEffect(() => {
+    const createUser = async () => {
+      const url = 'https://example.com/api/users';
+      const userData = {
+        name: 'John Doe',
+        email: 'john.doe@example.com',
+      };
+      try {
+        setLoading(true); 
+        const response = await axios.post(url, userData, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        setData(response.data); 
+      } catch (error) {
+        if (error.response) {
+          setError(`Server error: ${error.response.status} - ${error.response.data}`);
+        } else {
+          setError(`Network error: ${error.message}`);
+        }
+      } finally {
+        setLoading(false); 
+      }
+    };
+    createUser(); 
+  }, []); // 
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error}</p>;
+
+  return (
+    <div>
+      <h1>New user</h1>
+      {data && (
+        <div>
+          <p>ID: {data.id}</p>
+          <p>Name: {data.name}</p>
+          <p>Email: {data.email}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### 3. With axios and typescript
+
+**App.tsx**
+
+```javascript
+import React, { useState, useEffect } from 'react';
+import axios, { AxiosError } from 'axios';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+const App: React.FC = () => {
+  const [data, setData] = useState<User | null>(null); 
+  const [loading, setLoading] = useState<boolean>(true); 
+  const [error, setError] = useState<AxiosError | null>(null); 
+
+  useEffect(() => {
+    const createUser = async () => {
+      const url = 'https://example.com/api/users'; // API URL
+      const userData = {
+        name: 'John Doe',
+        email: 'john.doe@example.com',
+      };
+
+      try {
+        setLoading(true); 
+        const response = await axios.post<User>(url, userData, { 
+          headers: {
+            'Content-Type': 'application/json', 
+          },
+        });
+        setData(response.data); 
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          setError(error); 
+        } else {
+          setError(null); 
+          console.error(`Network error: ${error.message}`);
+        }
+      } finally {
+        setLoading(false); 
+      }
+    };
+    createUser(); 
+  }, []); 
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>; 
+
+  return (
+    <div>
+      <h1>New user</h1>
+      {data && (
+        <div>
+          <p>ID: {data.id}</p>
+          <p>Name: {data.name}</p>
+          <p>Email: {data.email}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
+```
