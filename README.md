@@ -2062,3 +2062,485 @@ const App: React.FC = () => {
 
 export default App;
 ```
+# React Composition Patterns
+
+## I. Basics
+
+### Primitive DOM component
+
+The component consist of:
+
+- Comment indicating the name of the component for quick identification
+- Defined component name (prefer in capslock and `NAME` suffix)
+- Exported component props type using the the base HTML attributes (prefer with `Props` suffix)
+- Component signature with spreaded props
+- Component implementation with spreaded props to the DOM element and props merging if needed (see below)
+- Assigned `displayName` to the component to improve debugging
+
+**Snippet: rc**
+
+```tsx
+/** ComponentName */
+
+const COMPONENT_NAME_NAME = "ComponentName";
+
+export type ComponentNameProps = React.HTMLAttributes<HTMLDivElement>;
+
+export const ComponentName = ({ className, children, ...props }: ComponentNameProps) => {
+  return (
+    <div className={cn("", className)} {...props}>
+      {children}
+    </div>
+  );
+};
+
+ComponentName.displayName = COMPONENT_NAME_NAME;
+```
+
+**Usage example**
+
+```tsx
+const Container = () => {
+  return <ComponentName className="bg-blue-500 p-2">Hello</ComponentName>;
+};
+```
+
+### Primitive DOM component with forwarded ref
+
+The pattern follows the [Primitive DOM component](#primitive-dom-component)
+
+Additional requirements:
+
+- Exported DOM element type (prefer with `Element` suffix)
+- `React.forwardedRef` wrapper with generic types of DOM element type and component props
+- Prefer naming the `ref` parameter as `forwardedRef` for clarity
+- `ref` passed to the underlying DOM element
+
+**Snippet: rcf**
+
+```tsx
+/** ComponentName */
+
+const COMPONENT_NAME_NAME = "ComponentName";
+
+export type ComponentNameProps = React.HTMLAttributes<HTMLDivElement>;
+export type ComponentNameElement = HTMLDivElement;
+
+export const ComponentName = React.forwardRef<ComponentNameElement, ComponentNameProps>(
+  ({ className, children, ...props }, forwardedRef) => {
+    return (
+      <div ref={forwardedRef} className={cn("", className)} {...props}>
+        {children}
+      </div>
+    );
+  }
+);
+
+ComponentName.displayName = COMPONENT_NAME_NAME;
+```
+
+**Usage example**
+
+```tsx
+const Container = () => {
+  const componentRef = useRef<HTMLDivElement>();
+  return (
+    <ComponentName ref={componentRef} className="bg-blue-500 p-2">
+      Hello
+    </ComponentName>
+  );
+};
+```
+
+### Basic context
+
+Requirements for context definition:
+
+- Exported context type
+- Defined context using `createContext` from the `@radix-ui/react-context`
+- Pass component name in which context provider will be used
+- Follow naming conventions as example below
+
+**Snippet: rcc**
+
+```tsx
+export type ParentComponentContextType = {
+  showChild: boolean;
+};
+
+export const [ParentComponentProvider, useParentComponent] =
+  createContext<ParentComponentContextType>(PARENT_COMPONENT_NAME);
+```
+
+**Usage example**
+
+```tsx
+/** ParentComponent */
+
+const PARENT_COMPONENT_NAME = "ParentComponent";
+
+export type ParentComponentContextType = {
+  showChild: boolean;
+};
+
+export const [ParentComponentProvider, useParentComponent] =
+  createContext<ParentComponentContextType>(PARENT_COMPONENT_NAME);
+
+export type ParentComponentProps = React.HTMLAttributes<HTMLDivElement> & {
+  showChild?: boolean;
+};
+
+export const ParentComponent = ({
+  className,
+  children,
+  showChild = false,
+  ...props
+}: ParentComponentProps) => {
+  /** Wrap element with context provider */
+  return (
+    <ParentComponentProvider showChild={showChild}>
+      <div className={cn("", className)} {...props}>
+        {children}
+      </div>
+    </ParentComponentProvider>
+  );
+};
+
+ParentComponent.displayName = PARENT_COMPONENT_NAME;
+
+/** ChildComponent */
+
+const CHILD_COMPONENT_NAME = "ChildComponent";
+
+export type ChildComponentProps = React.HTMLAttributes<HTMLDivElement>;
+
+export const ChildComponent = ({ className, children, ...props }: ChildComponentProps) => {
+  /** Use context by passing the consumer component name */
+  const { showChild } = useParentComponent(CHILD_COMPONENT_NAME);
+
+  if (!showChild) return null;
+
+  return (
+    <div className={cn("", className)} {...props}>
+      {children}
+    </div>
+  );
+};
+
+ChildComponent.displayName = CHILD_COMPONENT_NAME;
+```
+
+### Primitive DOM component input, with forwarded ref
+
+The pattern follows the [Primitive DOM component](#primitive-dom-component)
+
+Additional requirements:
+
+- Exported DOM element type (prefer with `Element` suffix)
+- `React.forwardedRef` wrapper with generic types of DOM element type and component props
+- Prefer naming the `ref` parameter as `forwardedRef` for clarity
+- `ref` passed to the underlying DOM element
+
+**Snippet: rcif**
+
+```tsx
+/** MyInput */
+
+const MY_INPUT_NAME = "MyInput";
+
+export type MyInputProps = React.InputHTMLAttributes<HTMLInputElement>;
+export type MyInputElement = HTMLInputElement;
+
+export const MyInput = React.forwardRef<MyInputElement, MyInputProps>(
+  ({ className, ...props }, forwardedRef) => {
+    return <input ref={forwardedRef} className={cn("", className)} {...props} />;
+  }
+);
+
+MyInput.displayName = MY_INPUT_NAME;
+```
+
+**Usage example**
+
+```tsx
+const Form = () => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <MyInput
+      ref={inputRef}
+      className="rounded border border-gray-300 px-3 py-2"
+      placeholder="Įveskite tekstą"
+    />
+  );
+};
+```
+
+### Primitive bare component
+
+The component consist of:
+
+- Comment indicating the name of the component for quick identification
+- Defined component name (prefer in capslock and `NAME` suffix)
+- Exported component props type using the props type of another component (prefer with `Props` suffix)
+- Component signature with spreaded props
+- Component implementation using another component with spreaded props and children rendering
+- Assigned `displayName` to the component to improve debugging
+
+**Snippet: bc**
+
+```tsx
+/** ComponentName */
+
+const COMPONENT_NAME_NAME = "ComponentName";
+
+export type ComponentNameProps = React.ComponentProps<typeof OtherComponent>;
+
+export const ComponentName = ({children, ...props }: ComponentNameProps) => {
+    <OtherComponent {...props}>
+      {children}
+    </OtherComponent>
+  );
+};
+
+ComponentName.displayName = COMPONENT_NAME_NAME;
+```
+
+**Usage example**
+
+```tsx
+const Container = () => {
+  return (
+    <ComponentName someProp="value" className="border p-4">
+      <span>Hello from inside</span>
+    </ComponentName>
+  );
+};
+```
+
+### Primitive bare component with forwarded ref
+
+The pattern follows the [Primitive bare component](#primitive-bare-component)
+
+Additional requirements:
+
+- Exported element type using `React.ElementRef` for accurate ref typing (prefer with `Element` suffix)
+- Component signature using `React.forwardRef` with typed ref and spreaded props
+- Component implementation using another component with forwarded ref, spreaded props, and children rendering
+
+**Snippet: bcf**
+
+```tsx
+/** ComponentName */
+
+const COMPONENT_NAME_NAME = "ComponentName";
+
+export type ComponentNameProps = React.ComponentPropsWithoutRef<typeof OtherComponent>;
+export type ComponentNameElement = React.ElementRef<typeof OtherComponent>;
+
+export const ComponentName = React.forwardRef<ComponentNameElement, ComponentNameProps>(
+  ({ children, ...props }, forwardedRef) => {
+    return (
+      <OtherComponent ref={forwardedRef} {...props}>
+        {children}
+      </OtherComponent>
+    );
+  }
+);
+
+ComponentName.displayName = COMPONENT_NAME_NAME;
+```
+
+**Usage example**
+
+```tsx
+const Container = () => {
+  const ref = useRef<ComponentNameElement>(null);
+
+  useEffect(() => {
+    if (ref.current) {
+      console.log("Ref to wrapped component:", ref.current);
+    }
+  }, []);
+
+  return (
+    <ComponentName ref={ref} someProp="value">
+      Hello from inside
+    </ComponentName>
+  );
+};
+```
+
+### Primitive DOM component props extending
+
+The pattern follows the [Primitive DOM component](#primitive-dom-component)
+
+Additional requirements:
+
+- `React.HTMLAttributes<HTMLDivElement>` allows you to use any `<div>` attribute (`id`, `onClick`, `aria-*`, `style`, etc.)
+- `& { isHighlighted?: boolean }` extends DOM props with additional props specific to this component
+- `...props` passes all additional HTML attributes to `<div>`
+
+**Snippet: rcpe**
+
+```tsx
+/** ComponentName */
+
+const COMPONENT_NAME_NAME = "ComponentName";
+
+export type ComponentNameProps = React.HTMLAttributes<HTMLDivElement> & {
+  isHighlighted?: boolean;
+};
+
+export type ComponentNameElement = HTMLDivElement;
+
+export const ComponentName = React.forwardRef<ComponentNameElement, ComponentNameProps>(
+  ({ className, isHighlighted = false, children, ...props }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className={cn("my-base-class", isHighlighted && "bg-yellow-100", className)}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  }
+);
+
+ComponentName.displayName = COMPONENT_NAME_NAME;
+```
+
+**Usage example**
+
+```tsx
+<ComponentName
+  id="my-comp"
+  isHighlighted
+  onClick={() => console.log("Clicked!")} //this props exists through DOM extending
+  className="rounded-lg"
+>
+  Hello!
+</ComponentName>
+```
+
+### Primitive DOM component default props values
+
+The pattern follows the [Primitive DOM component](#primitive-dom-component)
+
+Additional requirements:
+
+- `React.HTMLAttributes<HTMLDivElement>` allows you to use any `<div>` attribute (`id`, `onClick`, `aria-*`, `style`, etc.)
+- `contentEditable = true` default prop value
+- `...props` passes all additional HTML attributes to `<div>`
+
+**Snippet: rcdpv**
+
+```tsx
+/** ComponentName */
+
+const COMPONENT_NAME_NAME = "ComponentName";
+
+export type ComponentNameProps = React.HTMLAttributes<HTMLDivElement>;
+
+export const ComponentName = ({
+  className,
+  children,
+  contentEditable = true,
+  ...props
+}: ComponentNameProps) => {
+  return (
+    <div className={cn("", className)} contentEditable={contentEditable} {...props}>
+      {children}
+    </div>
+  );
+};
+
+ComponentName.displayName = COMPONENT_NAME_NAME;
+```
+
+**Usage example**
+
+```tsx
+const Container = () => {
+  return (
+    <ComponentName
+      className="rounded border bg-white p-4"
+      onBlur={() => console.log("Blur event")}
+      aria-label="Editable content block"
+    >
+      You can edit this text directly because contentEditable is true by default.
+    </ComponentName>
+  );
+};
+```
+
+### Primitive DOM component props merging and props spreading
+
+The pattern follows the [Primitive DOM component](#primitive-dom-component)
+
+Additional requirements:
+
+- `className: cn("bg-white rounded", className)` combines base classes with user classes
+- `style: { padding: "1rem", ...style }` ensures that the user can add to or override the style
+- `...props` allows the user to pass other attributes that are not directly listed in the component's props
+
+**Snippet: rcmap**
+
+```tsx
+** ComponentName */
+
+const COMPONENT_NAME_NAME = "ComponentName";
+
+export type ComponentNameProps = React.HTMLAttributes<HTMLDivElement>;
+
+export const ComponentName = ({
+  className,
+  style,
+  children,
+  ...props
+}: ComponentNameProps) => {
+  return (
+    <div
+      className={cn("bg-white rounded", className)}
+      style={{ padding: "1rem", ...style }}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+};
+
+ComponentName.displayName = COMPONENT_NAME_NAME;
+```
+
+**Usage example**
+
+```tsx
+(
+  <ComponentName
+    className="shadow-md"
+    style={{ backgroundColor: "#f0f0f0" }}
+    id="my-box"
+    onClick={() => alert("Clicked!")}
+  >
+    Custom styles & attributes
+  </ComponentName>
+) **
+  (result **
+  (
+    <div
+      id="my-box"
+      class="rounded bg-white shadow-md"
+      style="padding: 1rem; background-color: #f0f0f0;"
+    >
+      Custom styles & attributes
+    </div>
+  ));
+```
+
+
